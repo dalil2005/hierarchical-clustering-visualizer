@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Hierarchical Clustering and Similarity Measures Lab</title>
+<style>
+:root{--bg:#f3f5f7;--panel:#fff;--ink:#1c2430;--muted:#5d6b7c;--grid:#e2e7ec;--line:#cfd6de;
+--c0:#e0457b;--c1:#1f8a70;--c2:#e08a00;--c3:#3a6fd8;--c4:#8a4fd0;--c5:#00a3b8;--c6:#9a6b2f;--c7:#d33f2e;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#10151b;--panel:#18202a;--ink:#e8edf3;--muted:#93a1b2;--grid:#243040;--line:#33415a;
+--c0:#ff7aa5;--c1:#4fd1ae;--c2:#ffb84d;--c3:#7ea6ff;--c4:#b794f6;--c5:#4fd8ec;--c6:#d9a45e;--c7:#ff8a7a}}
+:root[data-theme="dark"]{--bg:#10151b;--panel:#18202a;--ink:#e8edf3;--muted:#93a1b2;--grid:#243040;--line:#33415a;
+--c0:#ff7aa5;--c1:#4fd1ae;--c2:#ffb84d;--c3:#7ea6ff;--c4:#b794f6;--c5:#4fd8ec;--c6:#d9a45e;--c7:#ff8a7a}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:"Trebuchet MS","Segoe UI",system-ui,sans-serif;line-height:1.5}
+.wrap{max-width:980px;margin:0 auto;padding:20px 16px 40px}
+h1{font-size:1.6rem;margin:0 0 4px}h2{font-size:1.25rem;margin:30px 0 6px}
+.sub{color:var(--muted);margin:0 0 12px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px;margin-bottom:12px}
+.controls{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px}
+.controls label{display:flex;flex-direction:column;gap:4px;font-size:.9rem;color:var(--muted)}
+.controls b{color:var(--ink)}
+select,input[type=text],input[type=range]{width:100%;font:inherit}
+select,input[type=text]{padding:7px;border-radius:8px;border:1px solid var(--line);background:var(--panel);color:var(--ink)}
+svg{display:block;width:100%;height:auto;max-height:66vh}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+button{font:inherit;padding:9px 14px;border-radius:8px;border:1px solid var(--line);background:var(--panel);color:var(--ink);cursor:pointer}
+button.primary{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+button:focus-visible,select:focus-visible,input:focus-visible{outline:3px solid var(--c3);outline-offset:2px}
+button:disabled{opacity:.45;cursor:default}
+.msg{margin:8px 2px;color:var(--muted);min-height:3em}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:12px}
+table{border-collapse:collapse;width:100%;font-size:.92rem}
+th,td{text-align:left;padding:6px 8px;border-bottom:1px solid var(--line)}
+td.v{font-weight:700;font-family:Consolas,monospace}
+code{background:var(--grid);padding:1px 6px;border-radius:4px}
+.formula{background:var(--grid);padding:8px 12px;border-radius:8px;overflow-x:auto;font-family:Consolas,monospace;margin:6px 0}
+.explain p,.explain li{max-width:74ch}
+.courses{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px}
+.course{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px;display:flex;flex-direction:column;gap:6px}
+.course h3{margin:0;font-size:1rem}.meta{color:var(--muted);font-size:.85rem}
+.course a{color:var(--c3);font-weight:700;margin-top:auto}
+.foot{color:var(--muted);font-size:.85rem;margin-top:18px}
+.pt{transition:fill .4s}
+@media (prefers-reduced-motion:reduce){.pt{transition:none}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<h1>Hierarchical Clustering and Similarity Measures Lab</h1>
+<p class="sub">Part 1: see how distance and similarity are measured. Part 2: watch clusters merge one step at a time and grow a dendrogram.</p>
+
+<h2>Part 1. Similarity measures</h2>
+<p class="sub">Drag points A and B (click anywhere to move the nearest one). The numbers update live.</p>
+<div class="grid2">
+  <div class="card"><svg id="sim" viewBox="0 0 600 360" role="img" aria-label="Two draggable points and their distances" style="touch-action:none;cursor:crosshair"></svg>
+    <div class="row" style="font-size:.88rem;color:var(--muted);margin-top:6px">
+      <span><b style="color:var(--c0)">A</b> red</span><span><b style="color:var(--c3)">B</b> blue</span>
+      <span>Solid black = Euclidean</span><span>Dashed orange = Manhattan</span></div></div>
+  <div class="card"><table><thead><tr><th>Measure</th><th>Value</th></tr></thead><tbody id="simtab"></tbody></table>
+    <label style="display:flex;flex-direction:column;gap:4px;font-size:.9rem;color:var(--muted);margin-top:10px">Minkowski p: <b id="ppv" style="color:var(--ink)">3</b><input type="range" id="pp" min="1" max="6" step="0.5" value="3"></label>
+  </div>
+</div>
+<div class="card">
+  <b>Sets: Jaccard similarity</b> <span class="meta">(for text, tags, shopping baskets)</span>
+  <div class="controls" style="margin-top:8px">
+    <label>Set A<input type="text" id="sa" value="red, green, blue, yellow"></label>
+    <label>Set B<input type="text" id="sb" value="green, blue, purple"></label>
+  </div>
+  <div class="msg" id="jac"></div>
+</div>
+
+<h2>Part 2. Hierarchical clustering (agglomerative)</h2>
+<div class="card controls">
+  <label>Points: <b id="nv">15</b><input type="range" id="n" min="6" max="30" value="15"></label>
+  <label>Linkage
+    <select id="link"><option value="single">Single (closest pair)</option><option value="complete">Complete (farthest pair)</option><option value="average" selected>Average</option><option value="ward">Ward (minimum variance)</option></select></label>
+  <label>Distance
+    <select id="metric"><option value="euclid">Euclidean</option><option value="manhattan">Manhattan</option><option value="cheb">Chebyshev</option><option value="cosine">Cosine distance</option></select></label>
+  <label>Data shape
+    <select id="shape"><option value="blobs">Groups (blobs)</option><option value="uniform">Uniform random</option><option value="bands">Two elongated bands</option></select></label>
+</div>
+<div class="grid2">
+  <div class="card"><div class="meta">Data points</div><svg id="pts" viewBox="0 0 600 420" role="img" aria-label="Points colored by cluster"></svg></div>
+  <div class="card"><div class="meta">Dendrogram (height = merge distance)</div><svg id="dendro" viewBox="0 0 600 330" role="img" aria-label="Dendrogram"></svg></div>
+</div>
+<div class="msg" id="msg"></div>
+<div class="row">
+  <button id="back">Back</button>
+  <button class="primary" id="play">Play</button>
+  <button id="next">Next merge</button>
+  <button id="gen">New points</button>
+  <label style="display:flex;gap:8px;align-items:center;color:var(--muted);font-size:.9rem">Clusters now: <b id="kv" style="color:var(--ink)">15</b>
+    <input type="range" id="kk" min="1" max="15" value="15" style="width:150px"></label>
+</div>
+
+<section class="explain">
+<h2>Similarity measures in one table</h2>
+<table>
+<tr><th>Measure</th><th>Formula</th><th>Best for</th></tr>
+<tr><td>Euclidean</td><td><code>sqrt(sum (a_i - b_i)^2)</code></td><td>Straight-line distance, numeric features</td></tr>
+<tr><td>Manhattan</td><td><code>sum |a_i - b_i|</code></td><td>Grid-like paths, less sensitive to outliers</td></tr>
+<tr><td>Chebyshev</td><td><code>max |a_i - b_i|</code></td><td>Largest single difference matters</td></tr>
+<tr><td>Minkowski</td><td><code>(sum |a_i - b_i|^p)^(1/p)</code></td><td>General family: p=1 Manhattan, p=2 Euclidean</td></tr>
+<tr><td>Cosine similarity</td><td><code>(A . B) / (|A| |B|)</code></td><td>Direction, not length (text, embeddings)</td></tr>
+<tr><td>Jaccard</td><td><code>|A and B| / |A or B|</code></td><td>Sets, tags, binary data</td></tr>
+</table>
+<p>A <b>distance</b> is small when things are alike. A <b>similarity</b> is large when things are alike. You can convert: cosine distance = 1 - cosine similarity.</p>
+
+<h2>How agglomerative clustering works</h2>
+<ol>
+<li>Start with every point as its own cluster.</li>
+<li>Find the two closest clusters, using a distance and a linkage rule.</li>
+<li>Merge them into one cluster and record the merge distance.</li>
+<li>Repeat until only one cluster is left. The record of merges is the <b>dendrogram</b>.</li>
+<li>To get k clusters, cut the dendrogram at a height (the dashed line). Use the "Clusters now" slider.</li>
+</ol>
+<h2>Linkage rules</h2>
+<ul>
+<li><b>Single:</b> distance between the closest pair of points. Can chain clusters together (try the bands).</li>
+<li><b>Complete:</b> distance between the farthest pair. Makes compact clusters.</li>
+<li><b>Average:</b> mean of all pairwise distances. A balance of the two.</li>
+<li><b>Ward:</b> merges the pair that increases total within-cluster variance the least. Always uses Euclidean distance here.</li>
+</ul>
+<h2>Experiments to try</h2>
+<ul>
+<li>Use <b>Two elongated bands</b> with Single, then Complete linkage and compare the cuts at 2 clusters.</li>
+<li>Switch the distance to <b>Cosine</b>: points in the same direction from the bottom-left corner merge, whatever their distance from it.</li>
+<li>Look for a big jump in height on the dendrogram. Cutting just below it is a good choice of k.</li>
+<li>Compare with K-Means: hierarchical clustering needs no k in advance and gives a full tree, but costs more on big data.</li>
+</ul>
+
+<h2>Courses and resources</h2>
+<div class="courses">
+<div class="course"><h3>Clustering (ML Crash Course)</h3><div class="meta">Google for Developers · Free · Beginner</div><p style="margin:0">Similarity measures and clustering basics.</p><a href="https://developers.google.com/machine-learning/clustering" target="_blank" rel="noopener">Open course</a></div>
+<div class="course"><h3>scikit-learn: clustering guide</h3><div class="meta">Documentation · Free · Intermediate</div><p style="margin:0">Agglomerative clustering and linkage options in Python.</p><a href="https://scikit-learn.org/stable/modules/clustering.html#hierarchical-clustering" target="_blank" rel="noopener">Open guide</a></div>
+<div class="course"><h3>SciPy: cluster.hierarchy</h3><div class="meta">Documentation · Free · Intermediate</div><p style="margin:0">Build linkage matrices and draw dendrograms.</p><a href="https://docs.scipy.org/doc/scipy/reference/cluster.hierarchy.html" target="_blank" rel="noopener">Open docs</a></div>
+<div class="course"><h3>StatQuest: Hierarchical clustering</h3><div class="meta">Josh Starmer · YouTube · Beginner</div><p style="margin:0">Clear visual walkthrough. Search for the video title.</p><a href="https://www.youtube.com/results?search_query=StatQuest+hierarchical+clustering" target="_blank" rel="noopener">Find the video</a></div>
+<div class="course"><h3>An Introduction to Statistical Learning</h3><div class="meta">Free book · Intermediate</div><p style="margin:0">The unsupervised learning chapter covers hierarchical clustering.</p><a href="https://www.statlearning.com/" target="_blank" rel="noopener">Open book page</a></div>
+<div class="course"><h3>Kaggle Learn</h3><div class="meta">Free · Beginner</div><p style="margin:0">Hands-on Python notebooks and datasets to practice on.</p><a href="https://www.kaggle.com/learn" target="_blank" rel="noopener">Open Kaggle Learn</a></div>
+</div>
+<p class="foot">Course pages change over time, so check that each link is still current. Open source, MIT license.</p>
+</section>
+</div>
+
+<script>
+(function(){
+var NS="http://www.w3.org/2000/svg",$=function(i){return document.getElementById(i)};
+function el(n,a){var e=document.createElementNS(NS,n);for(var k in a)e.setAttribute(k,a[k]);return e}
+function txt(s,a,t){var e=el("text",a);e.textContent=t;s.appendChild(e)}
+function clamp(v,a,b){return Math.max(a,Math.min(b,v))}
+function gauss(){return Math.sqrt(-2*Math.log(Math.random()+1e-9))*Math.cos(2*Math.PI*Math.random())}
+function col(i){return "var(--c"+(i%8)+")"}
+
+/* ===== Part 1: similarity lab ===== */
+var A={x:7,y:3},B={x:3,y:8},sim=$("sim"),drag=null;
+var sx=function(x){return 40+x*52},sy=function(y){return 330-y*30};
+function drawSim(){
+  sim.innerHTML="";var i;
+  for(i=0;i<=10;i++){
+    sim.appendChild(el("line",{x1:sx(i),y1:sy(0),x2:sx(i),y2:sy(10),stroke:"var(--grid)"}));
+    sim.appendChild(el("line",{x1:sx(0),y1:sy(i),x2:sx(10),y2:sy(i),stroke:"var(--grid)"}));
+    if(i%2===0){txt(sim,{x:sx(i),y:348,"text-anchor":"middle","font-size":11,fill:"var(--muted)"},i);txt(sim,{x:30,y:sy(i)+4,"text-anchor":"end","font-size":11,fill:"var(--muted)"},i)}
+  }
+  sim.appendChild(el("line",{x1:sx(0),y1:sy(0),x2:sx(A.x),y2:sy(A.y),stroke:"var(--c0)","stroke-width":2,opacity:.6}));
+  sim.appendChild(el("line",{x1:sx(0),y1:sy(0),x2:sx(B.x),y2:sy(B.y),stroke:"var(--c3)","stroke-width":2,opacity:.6}));
+  sim.appendChild(el("polyline",{points:sx(A.x)+","+sy(A.y)+" "+sx(B.x)+","+sy(A.y)+" "+sx(B.x)+","+sy(B.y),fill:"none",stroke:"var(--c2)","stroke-width":2.5,"stroke-dasharray":"6 4"}));
+  sim.appendChild(el("line",{x1:sx(A.x),y1:sy(A.y),x2:sx(B.x),y2:sy(B.y),stroke:"var(--ink)","stroke-width":2.5}));
+  [[A,"A","var(--c0)"],[B,"B","var(--c3)"]].forEach(function(o){
+    sim.appendChild(el("circle",{cx:sx(o[0].x),cy:sy(o[0].y),r:10,fill:o[2],stroke:"var(--ink)","stroke-width":2}));
+    txt(sim,{x:sx(o[0].x)+14,y:sy(o[0].y)-10,"font-size":14,"font-weight":700,fill:"var(--ink)"},o[1]+" ("+o[0].x.toFixed(1)+", "+o[0].y.toFixed(1)+")");
+  });
+  var dx=Math.abs(A.x-B.x),dy=Math.abs(A.y-B.y),p=+$("pp").value;
+  var dot=A.x*B.x+A.y*B.y,na=Math.hypot(A.x,A.y),nb=Math.hypot(B.x,B.y),cs=na&&nb?dot/(na*nb):0;
+  var ang=Math.acos(clamp(cs,-1,1))*180/Math.PI;
+  var rows=[["Euclidean",Math.hypot(dx,dy)],["Manhattan",dx+dy],["Chebyshev",Math.max(dx,dy)],
+    ["Minkowski (p="+p+")",Math.pow(Math.pow(dx,p)+Math.pow(dy,p),1/p)],
+    ["Cosine similarity",cs],["Cosine distance",1-cs],["Angle between A and B",ang]];
+  $("simtab").innerHTML=rows.map(function(r,i){return "<tr><td>"+r[0]+"</td><td class='v'>"+r[1].toFixed(3)+(i===6?"&deg;":"")+"</td></tr>"}).join("");
+}
+function pos(e){var r=sim.getBoundingClientRect();
+  return {x:clamp(((e.clientX-r.left)/r.width*600-40)/52,0,10),y:clamp((330-(e.clientY-r.top)/r.height*360)/30,0,10)}}
+function move(e){var p=pos(e);drag.x=Math.round(p.x*10)/10;drag.y=Math.round(p.y*10)/10;drawSim()}
+sim.onpointerdown=function(e){var p=pos(e);
+  drag=Math.hypot(p.x-A.x,p.y-A.y)<=Math.hypot(p.x-B.x,p.y-B.y)?A:B;sim.setPointerCapture(e.pointerId);move(e)};
+sim.onpointermove=function(e){if(drag)move(e)};
+sim.onpointerup=function(){drag=null};
+$("pp").oninput=function(){$("ppv").textContent=this.value;drawSim()};
+function parseSet(s){var o={};s.split(",").forEach(function(w){w=w.trim().toLowerCase();if(w)o[w]=1});return Object.keys(o)}
+function jac(){
+  var a=parseSet($("sa").value),b=parseSet($("sb").value);
+  var inter=a.filter(function(x){return b.indexOf(x)>=0}),uni=a.concat(b.filter(function(x){return a.indexOf(x)<0}));
+  var j=uni.length?inter.length/uni.length:0,d=a.length+b.length?2*inter.length/(a.length+b.length):0;
+  $("jac").innerHTML="Shared: <b>"+(inter.join(", ")||"none")+"</b> ("+inter.length+") &middot; Union: "+uni.length+
+    "<br>Jaccard similarity = "+inter.length+" / "+uni.length+" = <b>"+j.toFixed(3)+"</b> &middot; Jaccard distance = <b>"+(1-j).toFixed(3)+"</b> &middot; Dice = <b>"+d.toFixed(3)+"</b>";
+}
+$("sa").oninput=jac;$("sb").oninput=jac;
+
+/* ===== Part 2: hierarchical clustering ===== */
+var N,H,merges,root,pos2,step,timer=null,maxH,leafCache;
+var hx=function(x){return 30+x*54},hy=function(y){return 390-y*36};
+function dist(p,q,m){
+  var dx=p.x-q.x,dy=p.y-q.y;
+  if(m==="euclid")return Math.hypot(dx,dy);
+  if(m==="manhattan")return Math.abs(dx)+Math.abs(dy);
+  if(m==="cheb")return Math.max(Math.abs(dx),Math.abs(dy));
+  var d=p.x*q.x+p.y*q.y,n=Math.hypot(p.x,p.y)*Math.hypot(q.x,q.y);return n?1-d/n:1;
+}
+function centroid(c){var x=0,y=0;c.forEach(function(i){x+=H[i].x;y+=H[i].y});return {x:x/c.length,y:y/c.length}}
+function linkDist(a,b,link,m){
+  if(link==="ward"){var ca=centroid(a),cb=centroid(b);return Math.sqrt(2*a.length*b.length/(a.length+b.length))*Math.hypot(ca.x-cb.x,ca.y-cb.y)}
+  var mn=Infinity,mx=0,s=0;
+  a.forEach(function(i){b.forEach(function(j){var d=dist(H[i],H[j],m);if(d<mn)mn=d;if(d>mx)mx=d;s+=d})});
+  return link==="single"?mn:link==="complete"?mx:s/(a.length*b.length);
+}
+function makeData(){
+  N=+$("n").value;H=[];var s=$("shape").value,i;
+  if(s==="uniform")for(i=0;i<N;i++)H.push({x:.4+Math.random()*9.2,y:.4+Math.random()*9.2});
+  else if(s==="bands")for(i=0;i<N;i++)H.push({x:.8+Math.random()*8.4,y:clamp((i%2?7:3)+gauss()*.25,.3,9.7)});
+  else{var cs=[],g=3;for(i=0;i<g;i++)cs.push({x:2+Math.random()*6,y:2+Math.random()*6});
+    for(i=0;i<N;i++){var c=cs[i%g];H.push({x:clamp(c.x+gauss()*.8,.3,9.7),y:clamp(c.y+gauss()*.8,.3,9.7)})}}
+}
+function compute(){
+  var link=$("link").value,m=link==="ward"?"euclid":$("metric").value;
+  var cl=H.map(function(_,i){return {id:i,m:[i]}});merges=[];var nid=N;
+  while(cl.length>1){
+    var bi=0,bj=1,bd=Infinity,i,j,d;
+    for(i=0;i<cl.length;i++)for(j=i+1;j<cl.length;j++){d=linkDist(cl[i].m,cl[j].m,link,m);if(d<bd){bd=d;bi=i;bj=j}}
+    var a=cl[bi],b=cl[bj],n={id:nid++,l:a.id,r:b.id,h:bd,m:a.m.concat(b.m)};
+    merges.push(n);cl=cl.filter(function(_,k){return k!==bi&&k!==bj});cl.push(n);
+  }
+  root=merges[merges.length-1].id;maxH=merges[merges.length-1].h||1;
+  var order=leaves(root);pos2={};
+  order.forEach(function(p,i){pos2[p]={x:30+i*540/(N-1),y:290}});
+  (function f(id){if(id<N)return;var n=merges[id-N];f(n.l);f(n.r);
+    pos2[id]={x:(pos2[n.l].x+pos2[n.r].x)/2,y:290-n.h/maxH*260}})(root);
+}
+function leaves(id){return id<N?[id]:merges[id-N].m}
+function partition(s){var set={},i;for(i=0;i<N;i++)set[i]=1;
+  for(i=0;i<s;i++){delete set[merges[i].l];delete set[merges[i].r];set[N+i]=1}
+  return Object.keys(set).map(Number)}
+function draw(){
+  var part=partition(step),pc=$("pts"),dn=$("dendro"),i;
+  pc.innerHTML="";dn.innerHTML="";
+  for(i=0;i<=10;i++){pc.appendChild(el("line",{x1:hx(i),y1:hy(0),x2:hx(i),y2:hy(10),stroke:"var(--grid)"}));pc.appendChild(el("line",{x1:hx(0),y1:hy(i),x2:hx(10),y2:hy(i),stroke:"var(--grid)"}))}
+  var color={},next=step<N-1?merges[step]:null,ring={};
+  part.forEach(function(id){leaves(id).forEach(function(p){color[p]=id<N?"var(--muted)":col(id)})});
+  if(next){leaves(next.l).concat(leaves(next.r)).forEach(function(p){ring[p]=1})}
+  H.forEach(function(p,i){
+    var c=el("circle",{cx:hx(p.x),cy:hy(p.y),r:8,"class":"pt",stroke:ring[i]?"var(--ink)":"var(--panel)","stroke-width":ring[i]?3:1.5});
+    c.style.fill=color[i];pc.appendChild(c);
+    if(N<=20)txt(pc,{x:hx(p.x),y:hy(p.y)-12,"text-anchor":"middle","font-size":10,fill:"var(--muted)"},i+1);
+  });
+  dn.appendChild(el("line",{x1:24,y1:30,x2:24,y2:290,stroke:"var(--line)"}));
+  txt(dn,{x:6,y:20,"font-size":11,fill:"var(--muted)"},"distance");
+  function tree(id,c){if(id<N)return;var n=merges[id-N],p=pos2[id],a=pos2[n.l],b=pos2[n.r];
+    dn.appendChild(el("path",{d:"M"+a.x+","+a.y+"V"+p.y+"H"+b.x+"V"+b.y,fill:"none","stroke-width":2.5,stroke:c}));
+    tree(n.l,c);tree(n.r,c)}
+  part.forEach(function(id){if(id>=N)tree(id,col(id))});
+  for(i=0;i<N;i++){var q=pos2[i];dn.appendChild(el("circle",{cx:q.x,cy:q.y,r:3.5,fill:color[i]}));
+    if(N<=20)txt(dn,{x:q.x,y:308,"text-anchor":"middle","font-size":10,fill:"var(--muted)"},i+1)}
+  if(next){var hp=step>0?merges[step-1].h:0,yc=290-((hp+next.h)/2)/maxH*260;
+    dn.appendChild(el("line",{x1:24,y1:yc,x2:590,y2:yc,stroke:"var(--ink)","stroke-dasharray":"6 4","stroke-width":1.5}));
+    txt(dn,{x:588,y:yc-5,"text-anchor":"end","font-size":11,fill:"var(--ink)"},"cut: "+(N-step)+" clusters")}
+  $("kv").textContent=N-step;$("kk").max=N;$("kk").value=N-step;
+  $("back").disabled=step===0;$("next").disabled=!next;$("play").disabled=!next;
+  var f=function(id){return id<N?"point "+(id+1):"cluster of "+leaves(id).length+" ("+leaves(id).map(function(x){return x+1}).join(",")+")"};
+  if(step===0)$("msg").textContent="Start: every point is its own cluster ("+N+" clusters). Next merge: "+f(next.l)+" and "+f(next.r)+" at distance "+next.h.toFixed(2)+" (outlined points).";
+  else{var d=merges[step-1];$("msg").textContent="Merged "+f(d.l)+" with "+f(d.r)+" at distance "+d.h.toFixed(2)+". Now "+(N-step)+" cluster"+(N-step===1?"":"s")+"."+
+    (next?" Next merge: "+f(next.l)+" and "+f(next.r)+" at "+next.h.toFixed(2)+".":" Done: one cluster contains everything.")}
+}
+function stop(){if(timer!==null){clearTimeout(timer);timer=null}$("play").textContent="Play"}
+function loop(){if(step<N-1){step++;draw()}if(step<N-1&&timer!==null)timer=setTimeout(loop,900);else stop()}
+function rebuild(keep){stop();if(!keep)makeData();step=0;compute();draw()}
+$("play").onclick=function(){if(timer!==null){stop();return}$("play").textContent="Pause";timer=setTimeout(loop,100)};
+$("next").onclick=function(){stop();if(step<N-1){step++;draw()}};
+$("back").onclick=function(){stop();if(step>0){step--;draw()}};
+$("gen").onclick=function(){rebuild(false)};
+$("kk").oninput=function(){stop();step=N-(+this.value);draw()};
+$("n").oninput=function(){$("nv").textContent=this.value;rebuild(false)};
+$("shape").onchange=function(){rebuild(false)};
+$("link").onchange=function(){rebuild(true)};
+$("metric").onchange=function(){rebuild(true)};
+drawSim();jac();rebuild(false);
+})();
+</script>
+</body>
+</html>
